@@ -351,11 +351,11 @@ mariadb:
   ## ref: https://github.com/bitnami/bitnami-docker-mariadb/blob/master/README.md#creating-a-database-user-on-first-run
   ##
   db:
-    name: bitnami_wordpress
-    user: bn_wordpress
+    name: wordpress
+    user: wordpress
     ## If the password is not specified, mariadb will generates a random password
     ##
-    # password:
+    password: wordpress
 
   ## MariaDB admin password
   ## ref: https://github.com/bitnami/bitnami-docker-mariadb/blob/master/README.md#setting-the-root-password-on-first-run
@@ -393,15 +393,15 @@ externalDatabase:
 
   ## non-root Username for Wordpress Database
   ##
-  user: bn_wordpress
+  user: wordpress
 
   ## Database password
   ##
-  password: ""
+  password: "wordpress"
 
   ## Database name
   ##
-  database: bitnami_wordpress
+  database: wordpress
 
   ## Database port number
   ##
