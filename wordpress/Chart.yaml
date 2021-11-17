@@ -18,4 +18,3 @@ home: http://www.wordpress.com/
 sources:
   - https://github.com/bitnami/bitnami-docker-wordpress
 maintainers: []
-engine: gotpl
