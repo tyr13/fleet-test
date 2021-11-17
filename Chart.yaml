@@ -1,10 +1,38 @@
+annotations:
+  category: CMS
 apiVersion: v2
-name: zabbix-server
-description: BitNinja helm chart for Zabbix-server
-home: https://bitbucket.org/bitninjaio/helm-infra
-icon: https://assets.zabbix.com/img/logo/zabbix_logo_500x131.png
-type: application
+appVersion: 5.8.2
+dependencies:
+  - condition: mariadb.enabled
+    name: mariadb
+    repository: https://charts.bitnami.com/bitnami
+    version: 9.x.x
+  - condition: memcached.enabled
+    name: memcached
+    repository: https://charts.bitnami.com/bitnami
+    version: 5.x.x
+  - name: common
+    repository: https://charts.bitnami.com/bitnami
+    tags:
+      - bitnami-common
+    version: 1.x.x
+description: Web publishing platform for building blogs and websites.
+engine: gotpl
+home: https://github.com/bitnami/charts/tree/master/bitnami/wordpress
+icon: https://bitnami.com/assets/stacks/wordpress/img/wordpress-stack-220x234.png
+keywords:
+  - application
+  - blog
+  - cms
+  - http
+  - php
+  - web
+  - wordpress
 maintainers:
-- email: zoltan.laczko@bitninja.io
-  name: Zoltan Laczko
-version: 1.0.7 # bn.211117.1138
+  - email: containers@bitnami.com
+    name: Bitnami
+name: wordpress
+sources:
+  - https://github.com/bitnami/bitnami-docker-wordpress
+  - https://wordpress.org/
+version: 1.0.0
