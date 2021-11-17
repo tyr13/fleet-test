@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zabbix-web
+  labels:
+    app.kubernetes.io/name: zabbix-web
+    app.kubernetes.io/component: zabbix-web
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: zabbix-web
+  selector:
+    app.kubernetes.io/name: zabbix-web
+    app.kubernetes.io/component: zabbix-web

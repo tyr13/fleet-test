@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: zabbix-server
+    app.kubernetes.io/name: zabbix-server
+  name: zabbix-server
+spec:
+  replicas: {{ .Values.zabbixServer.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: zabbix-server
+      app.kubernetes.io/name: zabbix-server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: zabbix-server
+        app.kubernetes.io/name: zabbix-server
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                - zabbix-server
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: zabbix-server
+        image: {{ .Values.zabbixServer.image.repository }}:{{ .Values.zabbixServer.image.tag }}
+        imagePullPolicy: {{ .Values.zabbixServer.image.pullPolicy }}
+        ports:
+        - containerPort: 10051
+          name: zabbix-trapper
+        - containerPort: 10052
+          name: zabbix-jmx
+        env:
+        - name: DB_SERVER_HOST
+          value: {{ .Values.zabbixServer.DB_SERVER_HOST | quote }}
+        - name: POSTGRES_USER
+          value: {{ .Values.zabbixServer.POSTGRES_USER | quote }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.zabbixServer.POSTGRES_PASSWORD | quote }}
+        - name: POSTGRES_DB
+          value: {{ .Values.zabbixServer.POSTGRES_DB | quote }}
+        - name: ZBX_CACHESIZE
+          value: "256M"
+        - name: ZBX_STARTPINGERS
+          value: "10"
+        - name: ZBX_STARTPOLLERS
+          value: "10"
+        - name: ZBX_TIMEOUT
+          value: "10"
+        - name: ZBX_MAXHOUSEKEEPERDELETE
+          value: "2000"
+        - name: ZBX_HOUSEKEEPINGFREQUENCY
+          value: "1"
+        lifecycle:
+          preStop:
+            exec:
+              command: [ "/bin/sh", "-c", "pkill zabbix_server" ]
+      - name: zabbix-agent
+        image: {{ .Values.zabbixAgent.image.repository }}:{{ .Values.zabbixAgent.image.tag }}
+        imagePullPolicy: {{ .Values.zabbixAgent.image.pullPolicy }}
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities: {}
+          privileged: true
+          readOnlyRootFilesystem: false
+          runAsNonRoot: false
+        ports:
+        - name: zabbix-agent
+          containerPort: 10050
+          protocol: TCP
+        env:
+        - name: ZBX_HOSTNAME
+          value: {{ .Values.zabbixAgent.ZBX_HOSTNAME | quote }}
+        - name: ZBX_SERVER_HOST
+          value: {{ .Values.zabbixAgent.ZBX_SERVER_HOST | quote }}
+        - name: ZBX_SERVER_PORT
+          value: {{ .Values.zabbixAgent.ZBX_SERVER_PORT | quote }}
+        - name: ZBX_PASSIVESERVERS
+          value: {{ .Values.zabbixAgent.ZBX_PASSIVESERVERS | quote }}
+        - name: ZBX_ACTIVE_ALLOW
+          value: {{ .Values.zabbixAgent.ZBX_ACTIVE_ALLOW | quote }}
+        lifecycle:
+          preStop:
+            exec:
+              command: [ "/bin/sh", "-c", "pkill zabbix_agent2" ]
+{{- if .Values.zabbixServer.image.pullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.zabbixServer.image.pullSecrets | indent 8 }}
+{{- end }}

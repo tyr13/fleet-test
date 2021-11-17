@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zabbix-postgresql
+spec:
+  serviceName: zabbix-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zabbix-postgresql
+      app.kubernetes.io/component: zabbix-postgresql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zabbix-postgresql
+        app.kubernetes.io/component: zabbix-postgresql
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                - zabbix-postgresql
+            topologyKey: "kubernetes.io/hostname"
+      terminationGracePeriodSeconds: 120
+      containers:
+      - name: postgresql
+        image: {{ .Values.zabbixPostgresql.image.repository }}:{{ .Values.zabbixPostgresql.image.tag }}
+        imagePullPolicy: {{ .Values.zabbixPostgresql.image.pullPolicy }}
+        ports:
+        - name: postgresql
+          containerPort: 5432
+          protocol: TCP
+        env:
+        - name: PGDATA
+          value: /postgresql/data
+        - name: POSTGRES_USER
+          value: {{ .Values.zabbixPostgresql.POSTGRES_USER | quote }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.zabbixPostgresql.POSTGRES_PASSWORD | quote }}
+        args:
+        - "-c"
+        - "shared_buffers=256MB"
+        - "-c"
+        - "max_connections=250"
+        volumeMounts:
+        - name: data
+          mountPath: /postgresql
+      initContainers:
+      - name: init-config
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo 'START'
+          echo '- create content directory'
+          mkdir /postgresql/data
+          echo '- change content owner'
+          chown -R 999:999 /postgresql/data
+          echo '- content size'
+          du -sh /postgresql/data
+          echo 'STOP'
+        volumeMounts:
+        - name: data
+          mountPath: /postgresql
+        securityContext:
+          privileged: true
+{{- if .Values.zabbixPostgresql.image.pullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.zabbixPostgresql.image.pullSecrets | indent 8 }}
+{{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: {{ .Values.zabbixPostgresql.storage.size }}
