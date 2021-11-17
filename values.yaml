@@ -36,7 +36,7 @@ zabbixWeb:
   DB_SERVER_HOST: "zabbix-postgresql"
   DB_SERVER_PORT: 5432
   POSTGRES_USER: "zabbix"
-  POSTGRES_PASSWORD: "zabbix_db_pwd"
+  POSTGRES_PASSWORD: "zabbix_db_pwdruinit"
   POSTGRES_DB: "zabbix"
 
 zabbixAgent:
