@@ -103,7 +103,7 @@ allowEmptyPassword: true
 ## Set Apache allowOverride to None
 ## ref: https://github.com/bitnami/bitnami-docker-wordpress#environment-variables
 ##
-allowOverrideNone: false
+allowOverrideNone: true
 
 # ConfigMap with custom wordpress-htaccess.conf file (requires allowOverrideNone to true)
 customHTAccessCM:
@@ -123,7 +123,7 @@ customHTAccessCM:
 # smtpUsername:
 # smtpProtocol:
 
-replicaCount: 1
+replicaCount: 3
 
 ## Additional container environment variables
 ## Example: Configure SSL for database
@@ -254,7 +254,7 @@ service:
   ## Enable client source IP preservation
   ## ref http://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip
   ##
-  externalTrafficPolicy: Cluster
+  externalTrafficPolicy: Local
   annotations: {}
   ## Limits which cidr blocks can connect to service's load balancer
   ## Only valid if service.type: LoadBalancer
@@ -332,7 +332,12 @@ persistence:
   ## If you want to reuse an existing claim, you can pass the name of the PVC using
   ## the existingClaim variable
   # existingClaim: your-claim
-  accessMode: ReadWriteOnce
+  ##
+  ## To use the /admin portal and to ensure you can scale wordpress you need to provide a
+  ## ReadWriteMany PVC, if you dont have a provisioner for this type of storage
+  ## We recommend that you install the nfs provisioner and map it to a RWO volume
+  ## helm install nfs-server stable/nfs-server-provisioner --set persistence.enabled=true,persistence.size=10Gi
+  accessMode: ReadWriteMany
   size: 10Gi
 
 ##
@@ -410,7 +415,7 @@ externalDatabase:
 ## Prometheus Exporter / Metrics
 ##
 metrics:
-  enabled: false
+  enabled: true
   image:
     registry: docker.io
     repository: bitnami/apache-exporter

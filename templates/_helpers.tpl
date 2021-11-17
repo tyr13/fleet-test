@@ -1,47 +1,82 @@
 {{/* vim: set filetype=mustache: */}}
-
 {{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+Expand the name of the chart.
 */}}
-{{- define "wordpress.mariadb.fullname" -}}
-{{- include "common.names.dependency.fullname" (dict "chartName" "mariadb" "chartValues" .Values.mariadb "context" $) -}}
+{{- define "wordpress.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
-{{- define "wordpress.memcached.fullname" -}}
-{{- include "common.names.dependency.fullname" (dict "chartName" "memcached" "chartValues" .Values.memcached "context" $) -}}
+{{- define "wordpress.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default .Chart.Name .Values.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "wordpress.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Common labels
+*/}}
+{{- define "wordpress.labels" -}}
+app.kubernetes.io/name: {{ include "wordpress.name" . }}
+helm.sh/chart: {{ include "wordpress.chart" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{/*
+Labels to use on {deploy|sts}.spec.selector.matchLabels and svc.spec.selector
+*/}}
+{{- define "wordpress.matchLabels" -}}
+app.kubernetes.io/name: {{ include "wordpress.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+*/}}
+{{- define "mariadb.fullname" -}}
+{{- printf "%s-%s" .Release.Name "mariadb" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
 Return the proper WordPress image name
 */}}
 {{- define "wordpress.image" -}}
-{{- include "common.images.image" (dict "imageRoot" .Values.image "global" .Values.global) -}}
-{{- end -}}
-
+{{- $registryName := .Values.image.registry -}}
+{{- $repositoryName := .Values.image.repository -}}
+{{- $tag := .Values.image.tag | toString -}}
 {{/*
-Return the proper image name (for the metrics image)
+Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
+but Helm 2.9 and 2.10 doesn't support it, so we need to implement this if-else logic.
+Also, we can't use a single if because lazy evaluation is not an option
 */}}
-{{- define "wordpress.metrics.image" -}}
-{{- include "common.images.image" (dict "imageRoot" .Values.metrics.image "global" .Values.global) -}}
+{{- if .Values.global }}
+    {{- if .Values.global.imageRegistry }}
+        {{- printf "%s/%s:%s" .Values.global.imageRegistry $repositoryName $tag -}}
+    {{- else -}}
+        {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
+    {{- end -}}
+{{- else -}}
+    {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
 {{- end -}}
-
-{{/*
-Return the proper image name (for the init container volume-permissions image)
-*/}}
-{{- define "wordpress.volumePermissions.image" -}}
-{{- include "common.images.image" ( dict "imageRoot" .Values.volumePermissions.image "global" .Values.global ) -}}
-{{- end -}}
-
-{{/*
-Return the proper Docker Image Registry Secret Names
-*/}}
-{{- define "wordpress.imagePullSecrets" -}}
-{{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.metrics.image .Values.volumePermissions.image) "global" .Values.global) -}}
 {{- end -}}
 
 {{/*
@@ -52,43 +87,131 @@ Create chart name and version as used by the chart label.
 {{- end -}}
 
 {{/*
-Return the WordPress configuration secret
+Return the proper image name (for the metrics image)
 */}}
-{{- define "wordpress.configSecretName" -}}
-{{- if .Values.existingWordPressConfigurationSecret -}}
-    {{- printf "%s" (tpl .Values.existingWordPressConfigurationSecret $) -}}
+{{- define "wordpress.metrics.image" -}}
+{{- $registryName := .Values.metrics.image.registry -}}
+{{- $repositoryName := .Values.metrics.image.repository -}}
+{{- $tag := .Values.metrics.image.tag | toString -}}
+{{/*
+Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
+but Helm 2.9 and 2.10 doesn't support it, so we need to implement this if-else logic.
+Also, we can't use a single if because lazy evaluation is not an option
+*/}}
+{{- if .Values.global }}
+    {{- if .Values.global.imageRegistry }}
+        {{- printf "%s/%s:%s" .Values.global.imageRegistry $repositoryName $tag -}}
+    {{- else -}}
+        {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
+    {{- end -}}
 {{- else -}}
-    {{- printf "%s-configuration" (include "common.names.fullname" .) | trunc 63 | trimSuffix "-" -}}
+    {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Return true if a secret object should be created for WordPress configuration
+Return the proper Docker Image Registry Secret Names
 */}}
-{{- define "wordpress.createConfigSecret" -}}
-{{- if and .Values.wordpressConfiguration (not .Values.existingWordPressConfigurationSecret) }}
-    {{- true -}}
+{{- define "wordpress.imagePullSecrets" -}}
+{{/*
+Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
+but Helm 2.9 and 2.10 does not support it, so we need to implement this if-else logic.
+Also, we can not use a single if because lazy evaluation is not an option
+*/}}
+{{- if .Values.global }}
+{{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- else if or .Values.image.pullSecrets .Values.metrics.image.pullSecrets }}
+imagePullSecrets:
+{{- range .Values.image.pullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- range .Values.metrics.image.pullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- end -}}
+{{- else if or .Values.image.pullSecrets .Values.metrics.image.pullSecrets }}
+imagePullSecrets:
+{{- range .Values.image.pullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- range .Values.metrics.image.pullSecrets }}
+  - name: {{ . }}
+{{- end }}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Return the WordPress Apache configuration configmap
+Return  the proper Storage Class
 */}}
-{{- define "wordpress.apache.configmapName" -}}
-{{- if .Values.existingApacheConfigurationConfigMap -}}
-    {{- printf "%s" (tpl .Values.existingApacheConfigurationConfigMap $) -}}
+{{- define "wordpress.storageClass" -}}
+{{/*
+Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
+but Helm 2.9 and 2.10 does not support it, so we need to implement this if-else logic.
+*/}}
+{{- if .Values.global -}}
+    {{- if .Values.global.storageClass -}}
+        {{- if (eq "-" .Values.global.storageClass) -}}
+            {{- printf "storageClassName: \"\"" -}}
+        {{- else }}
+            {{- printf "storageClassName: %s" .Values.global.storageClass -}}
+        {{- end -}}
+    {{- else -}}
+        {{- if .Values.persistence.storageClass -}}
+              {{- if (eq "-" .Values.persistence.storageClass) -}}
+                  {{- printf "storageClassName: \"\"" -}}
+              {{- else }}
+                  {{- printf "storageClassName: %s" .Values.persistence.storageClass -}}
+              {{- end -}}
+        {{- end -}}
+    {{- end -}}
 {{- else -}}
-    {{- printf "%s-apache-configuration" (include "common.names.fullname" .) | trunc 63 | trimSuffix "-" -}}
+    {{- if .Values.persistence.storageClass -}}
+        {{- if (eq "-" .Values.persistence.storageClass) -}}
+            {{- printf "storageClassName: \"\"" -}}
+        {{- else }}
+            {{- printf "storageClassName: %s" .Values.persistence.storageClass -}}
+        {{- end -}}
+    {{- end -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Return true if a secret object should be created for Apache configuration
+Return the appropriate apiVersion for ingress.
 */}}
-{{- define "wordpress.apache.createConfigmap" -}}
-{{- if and .Values.apacheConfiguration (not .Values.existingApacheConfigurationConfigMap) }}
-    {{- true -}}
+{{- define "wordpress.ingress.apiVersion" -}}
+{{- if semverCompare "<1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- print "extensions/v1beta1" -}}
+{{- else -}}
+{{- print "networking.k8s.io/v1beta1" -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Return the appropriate apiVersion for deployment.
+*/}}
+{{- define "wordpress.deployment.apiVersion" -}}
+{{- if semverCompare "<1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- print "extensions/v1beta1" -}}
+{{- else -}}
+{{- print "apps/v1" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Renders a value that contains template.
+Usage:
+{{ include "wordpress.tplValue" ( dict "value" .Values.path.to.the.Value "context" $) }}
+*/}}
+{{- define "wordpress.tplValue" -}}
+    {{- if typeIs "string" .value }}
+        {{- tpl .value .context }}
+    {{- else }}
+        {{- tpl (.value | toYaml) .context }}
+    {{- end }}
 {{- end -}}
 
 {{/*
@@ -96,11 +219,7 @@ Return the MariaDB Hostname
 */}}
 {{- define "wordpress.databaseHost" -}}
 {{- if .Values.mariadb.enabled }}
-    {{- if eq .Values.mariadb.architecture "replication" }}
-        {{- printf "%s-primary" (include "wordpress.mariadb.fullname" .) | trunc 63 | trimSuffix "-" -}}
-    {{- else -}}
-        {{- printf "%s" (include "wordpress.mariadb.fullname" .) -}}
-    {{- end -}}
+    {{- printf "%s" (include "mariadb.fullname" .) -}}
 {{- else -}}
     {{- printf "%s" .Values.externalDatabase.host -}}
 {{- end -}}
@@ -122,7 +241,7 @@ Return the MariaDB Database Name
 */}}
 {{- define "wordpress.databaseName" -}}
 {{- if .Values.mariadb.enabled }}
-    {{- printf "%s" .Values.mariadb.auth.database -}}
+    {{- printf "%s" .Values.mariadb.db.name -}}
 {{- else -}}
     {{- printf "%s" .Values.externalDatabase.database -}}
 {{- end -}}
@@ -133,138 +252,29 @@ Return the MariaDB User
 */}}
 {{- define "wordpress.databaseUser" -}}
 {{- if .Values.mariadb.enabled }}
-    {{- printf "%s" .Values.mariadb.auth.username -}}
+    {{- printf "%s" .Values.mariadb.db.user -}}
 {{- else -}}
     {{- printf "%s" .Values.externalDatabase.user -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Return the MariaDB Secret Name
+Return the MariaDB User
 */}}
 {{- define "wordpress.databaseSecretName" -}}
 {{- if .Values.mariadb.enabled }}
-    {{- if .Values.mariadb.auth.existingSecret -}}
-        {{- printf "%s" .Values.mariadb.auth.existingSecret -}}
-    {{- else -}}
-        {{- printf "%s" (include "wordpress.mariadb.fullname" .) -}}
-    {{- end -}}
-{{- else if .Values.externalDatabase.existingSecret -}}
-    {{- printf "%s" .Values.externalDatabase.existingSecret -}}
+    {{- printf "%s" (include "mariadb.fullname" .) -}}
 {{- else -}}
-    {{- printf "%s-externaldb" (include "common.names.fullname" .) -}}
+    {{- printf "%s-%s" .Release.Name "externaldb" -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Return the Memcached Hostname
+Check if there are rolling tags in the images
 */}}
-{{- define "wordpress.cacheHost" -}}
-{{- if .Values.memcached.enabled }}
-    {{- $releaseNamespace := .Release.Namespace }}
-    {{- $clusterDomain := .Values.clusterDomain }}
-    {{- printf "%s.%s.svc.%s" (include "wordpress.memcached.fullname" .) $releaseNamespace $clusterDomain -}}
-{{- else -}}
-    {{- printf "%s" .Values.externalCache.host -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Return the Memcached Port
-*/}}
-{{- define "wordpress.cachePort" -}}
-{{- if .Values.memcached.enabled }}
-    {{- printf "11211" -}}
-{{- else -}}
-    {{- printf "%d" (.Values.externalCache.port | int ) -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Return the WordPress Secret Name
-*/}}
-{{- define "wordpress.secretName" -}}
-{{- if .Values.existingSecret }}
-    {{- printf "%s" .Values.existingSecret -}}
-{{- else -}}
-    {{- printf "%s" (include "common.names.fullname" .) -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Return the SMTP Secret Name
-*/}}
-{{- define "wordpress.smtpSecretName" -}}
-{{- if .Values.smtpExistingSecret }}
-    {{- printf "%s" .Values.smtpExistingSecret -}}
-{{- else -}}
-    {{- printf "%s" (include "common.names.fullname" .) -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Compile all warnings into a single message.
-*/}}
-{{- define "wordpress.validateValues" -}}
-{{- $messages := list -}}
-{{- $messages := append $messages (include "wordpress.validateValues.configuration" .) -}}
-{{- $messages := append $messages (include "wordpress.validateValues.htaccess" .) -}}
-{{- $messages := append $messages (include "wordpress.validateValues.database" .) -}}
-{{- $messages := append $messages (include "wordpress.validateValues.cache" .) -}}
-{{- $messages := without $messages "" -}}
-{{- $message := join "\n" $messages -}}
-{{- if $message -}}
-{{-   printf "\nVALUES VALIDATION:\n%s" $message | fail -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Validate values of WordPress - Custom wp-config.php
-*/}}
-{{- define "wordpress.validateValues.configuration" -}}
-{{- if and (or .Values.wordpressConfiguration .Values.existingWordPressConfigurationSecret) (not .Values.wordpressSkipInstall) -}}
-wordpress: wordpressConfiguration
-    You are trying to use a wp-config.php file. This setup is only supported
-    when skipping wizard installation (--set wordpressSkipInstall=true).
-{{- end -}}
-{{- end -}}
-
-{{/*
-Validate values of WordPress - htaccess configuration
-*/}}
-{{- define "wordpress.validateValues.htaccess" -}}
-{{- if and .Values.customHTAccessCM .Values.allowOverrideNone -}}
-wordpress: customHTAccessCM
-    You are trying to use custom htaccess rules but Apache was configured
-    to prohibit overriding directives with htaccess files. To use this feature,
-    allow overriding Apache directives (--set allowOverrideNone=false).
-{{- end -}}
-{{- end -}}
-
-{{/* Validate values of WordPress - Database */}}
-{{- define "wordpress.validateValues.database" -}}
-{{- if and (not .Values.mariadb.enabled) (or (empty .Values.externalDatabase.host) (empty .Values.externalDatabase.port) (empty .Values.externalDatabase.database)) -}}
-wordpress: database
-   You disable the MariaDB installation but you did not provide the required parameters
-   to use an external database. To use an external database, please ensure you provide
-   (at least) the following values:
-
-       externalDatabase.host=DB_SERVER_HOST
-       externalDatabase.database=DB_NAME
-       externalDatabase.port=DB_SERVER_PORT
-{{- end -}}
-{{- end -}}
-
-{{/* Validate values of WordPress - Cache */}}
-{{- define "wordpress.validateValues.cache" -}}
-{{- if and .Values.wordpressConfigureCache (not .Values.memcached.enabled) (or (empty .Values.externalCache.host) (empty .Values.externalCache.port)) -}}
-wordpress: cache
-   You enabled cache via W3 Total Cache without but you did not enable the Memcached
-   installation nor you did provided the required parameters to use an external cache server.
-   Please enable the Memcached installation (--set memcached.enabled=true) or
-   provide the external cache server values:
-
-       externalCache.host=CACHE_SERVER_HOST
-       externalCache.port=CACHE_SERVER_PORT
-{{- end -}}
+{{- define "wordpress.checkRollingTags" -}}
+{{- if and (contains "bitnami/" .Values.image.repository) (not (.Values.image.tag | toString | regexFind "-r\\d+$|sha256:")) }}
+WARNING: Rolling tag detected ({{ .Values.image.repository }}:{{ .Values.image.tag }}), please note that it is strongly recommended to avoid using rolling tags in a production environment.
++info https://docs.bitnami.com/containers/how-to/understand-rolling-tags-containers/
+{{- end }}
 {{- end -}}
