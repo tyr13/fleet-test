@@ -1,0 +1,16 @@
+apiVersion: v1
+name: sonarqube
+description: BitNinja - SonarQube is an open sourced code quality scanning tool
+version: 1.0.1 # 9.6.4-bn.211027.1200
+keywords:
+  - coverage
+  - security
+  - code
+  - quality
+home: https://www.sonarqube.org/
+icon: https://www.sonarqube.org/assets/logo-31ad3115b1b4b120f3d1efd63e6b13ac9f1f89437f0cf6881cc4d8b5603a52b4.svg
+sources:
+  - https://github.com/SonarSource/docker-sonarqube
+maintainers:
+- email: zoltan.laczko@bitninja.io
+  name: Zoltan Laczko
