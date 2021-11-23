@@ -11,6 +11,7 @@ replicaCount: 1
 image:
   # image.repository -- Container Image
   repository: docker.io/mendhak/http-https-echo
+  # repository: docker.io/nginxdemos/hello
   # image.tag -- The image tag
   # @default -- defaults to the latest version because the appVersion tag is not available at docker.io
   tag: latest

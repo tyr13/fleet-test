@@ -2,5 +2,6 @@ apiVersion: v2
 appVersion: 1.16.0
 description: A Dummy webserver to echo HTTP requests in log
 name: http-webhook
+#name: nginx-hello
 type: application
-version: 3.4.0
+version: 1.4.0
